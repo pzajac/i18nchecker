@@ -23,6 +23,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import org.apache.tools.ant.DirectoryScanner;
 import org.i18nchecker.impl.LayerParser.LayerData;
@@ -41,18 +42,34 @@ public final class ModuleScanner {
 
     private final File root;
     private final File sourceRoot;
-    private final boolean scanNbArtifacts;
+    private Optional<File> resourceRoot;
+    private final ModuleType moduleType;
     private final Map<String, PackageScanner> packages;
     private final ScanResults results;
 
     private final EntityResolver resolver;
-    
+
     public ModuleScanner(
-            File root, boolean scanNbArtifacts, EntityResolver resolver
+            File root, ModuleType moduleType, EntityResolver resolver
     ) throws IOException {
         this.root = root;
-        this.sourceRoot = scanNbArtifacts ? new File(root, "src") : root;
-        this.scanNbArtifacts = scanNbArtifacts;
+        resourceRoot = Optional.empty();
+        switch (moduleType) {
+            case NETBEANS:
+                this.sourceRoot = new File(root, "src");
+                break;
+            case MAVEN:
+                File mainDir = new File(root + File.separator +  "src" + File.separator + "main");
+                this.sourceRoot = new File(mainDir, "java");
+                File resourcesDir = new File(mainDir, "resources");
+                if (resourcesDir.exists()) {
+                    resourceRoot = Optional.of(resourcesDir);
+                }
+                break;
+            default:
+                sourceRoot = root;
+        }
+        this.moduleType = moduleType;
         this.resolver = resolver;
         this.packages = new TreeMap<String, PackageScanner>();
         this.results = new ScanResults(sourceRoot.getCanonicalPath());
@@ -60,16 +77,19 @@ public final class ModuleScanner {
 
     /** Scan module, verify I18N and collects results */
     public void scan() throws IOException {
-        scanFiles(FileType.PRIMARY_BUNDLE);
-        scanFiles(FileType.TRANSLATED_BUNDLE);
-        scanFiles(FileType.JAVA);
+        scanFiles(FileType.PRIMARY_BUNDLE, sourceRoot);
+        if (resourceRoot.isPresent()) {
+            scanFiles(FileType.PRIMARY_BUNDLE, resourceRoot.get());
+        }
+        scanFiles(FileType.TRANSLATED_BUNDLE, sourceRoot);
+        scanFiles(FileType.JAVA, sourceRoot);
 
         for (PackageScanner ps: packages.values()) {
             ps.parseFiles();
             ps.verify();
         }
 
-        if (scanNbArtifacts) {
+        if (moduleType == ModuleType.NETBEANS) {
             verifyManifest();
             verifyLayer();
         }
@@ -212,11 +232,11 @@ public final class ModuleScanner {
         return null;
     }
 
-    private void scanFiles(FileType type) throws IOException {
+    private void scanFiles(FileType type, File sourceRoot) throws IOException {
         if (!sourceRoot.exists() || !sourceRoot.isDirectory()) {
             return;
         }
-        
+
         DirectoryScanner ds = new DirectoryScanner();
         ds.setCaseSensitive(true);
         ds.setBasedir(sourceRoot);
@@ -232,7 +252,9 @@ public final class ModuleScanner {
     private PackageScanner getPackageScanner(String packagePath) throws IOException {
         PackageScanner ps = packages.get(packagePath);
         if (ps == null) {
-            ps = new PackageScanner(new File(sourceRoot, packagePath), sourceRoot.getAbsolutePath());
+            ps = new PackageScanner(new File(sourceRoot, packagePath),
+                    sourceRoot.getAbsolutePath(),
+                    resourceRoot.map (rr -> new File(rr, packagePath)));
             packages.put(packagePath, ps);
         }
         return ps;

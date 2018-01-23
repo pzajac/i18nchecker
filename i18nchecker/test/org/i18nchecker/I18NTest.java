@@ -50,7 +50,7 @@ public class I18NTest extends TestCase {
         EntityResolver resolver = createEntityResolver();
 
         Map<String,Integer> unfinishedModules = getUnfinishedI18NModules();
-        String result = (String) runAsTestMethod.invoke(null, rootDir, "i18nchecker/playground,i18nchecker/playground/PaintApp", unfinishedModules, resolver);
+        String result = (String) runAsTestMethod.invoke(null, rootDir, "i18nchecker/mavenproject1", unfinishedModules, resolver);
         if (!result.isEmpty()) {
             fail(result);
         }

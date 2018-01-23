@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -43,11 +44,13 @@ class PackageScanner {
     /** Simple package name e.g. "com/im/df/api" */
     private String simpleName;
 
-    public PackageScanner(File packageDir, String moduleDirName) throws IOException {
+    private Optional<File> resourcesDir;
+    public PackageScanner(File packageDir, String moduleDirName, Optional<File> resourcesDir) throws IOException {
         this.packageDir = packageDir;
         this.sources = new TreeMap<String, JavaSourceModel>();
         this.translatedBundles = new HashSet<TranslatedResourceBundleModel>();
         this.simpleName = packageDir.getCanonicalPath().substring(moduleDirName.length()).replace(File.separator, "/");
+        this.resourcesDir = resourcesDir;
     }
 
     /**
@@ -62,15 +65,24 @@ class PackageScanner {
                 if (primaryBundle != null) {
                     throw new IllegalStateException("Not implemented yet: more resource bundles in one package: "+packageDir);
                 }
-                primaryBundle = new PrimaryResourceBundleModel(packageDir + File.separator + name);
+                primaryBundle = new PrimaryResourceBundleModel(getResourcesDir(name) + File.separator + name);
                 break;
             case TRANSLATED_BUNDLE:
-                translatedBundles.add(new TranslatedResourceBundleModel(packageDir + File.separator + name));
+                translatedBundles.add(new TranslatedResourceBundleModel(getResourcesDir(name) + File.separator + name));
                 break;
             case JAVA:
                 sources.put(name, new JavaSourceModel(packageDir + File.separator + name));
                 break;
         }
+    }
+
+    private File getResourcesDir(String name) {
+        if (resourcesDir.isPresent()) {
+            if (new File(resourcesDir.get() + File.separator + name).isFile()) {
+                    return resourcesDir.get();
+            }
+        }
+        return packageDir;
     }
 
     /** Parse all files

@@ -17,6 +17,7 @@
 package org.i18nchecker;
 
 import com.sun.org.apache.xerces.internal.util.XMLCatalogResolver;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -34,6 +35,7 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.i18nchecker.impl.I18NUtils;
 import org.i18nchecker.impl.ModuleScanner;
+import org.i18nchecker.impl.ModuleType;
 import org.i18nchecker.impl.TranslatedData;
 import org.xml.sax.EntityResolver;
 
@@ -264,11 +266,11 @@ public final class I18nChecker extends Task {
                     continue;
                 }
                 if (isNbmManifest(new File(f, "manifest.mf"))) {
-                    scanners.add(new ModuleScanner(f, true, resolver));
+                    scanners.add(new ModuleScanner(f, ModuleType.NETBEANS, resolver));
                 } else if (isMavenProject(new File(f, "pom.xml"))) {
-                    scanners.add(new ModuleScanner(new File(f, "/src/main/java"), false, resolver));
+                    scanners.add(new ModuleScanner(f, ModuleType.MAVEN, resolver));
                 } else if (new File(f, "src").exists()) {
-                    scanners.add(new ModuleScanner(new File(f, "src"), false, resolver));
+                    scanners.add(new ModuleScanner(new File(f, "src"), ModuleType.UNKNOWN, resolver));
                 } else {
                     System.out.println("Can't auto-detect sources, ignoring: " + f.getCanonicalPath());
                 }
